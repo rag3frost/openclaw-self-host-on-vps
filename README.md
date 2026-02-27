@@ -6,7 +6,8 @@
 
 **OpenClaw** is a self-hosted AI agent framework that can execute commands, manage files, and perform tasks autonomously based on user instructions. This template deploys OpenClaw on Railway with minimal configuration, allowing you to run and access it remotely without managing servers. 🤖⚙️
 
-![OpenCrawl Setup Complete Page](https://res.cloudinary.com/asset-cloudinary/image/upload/v1770581375/openclaw_sb_pa8ipt.png)
+
+![OpenCrawl Setup Complete Page](src/public/setup page.png)
 
 
 ## About Hosting OpenClaw Railway Template
