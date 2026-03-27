@@ -5,7 +5,7 @@ builder = "dockerfile"
 healthcheckPath = "/setup/healthz"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
-startCommand = "bash git_setup.sh && bash entrypoint.sh"
+startCommand = "bash git_setup.sh && echo '🚀 Starting entrypoint...' && bash entrypoint.sh"
 
 [variables]
 PORT = "8080"
