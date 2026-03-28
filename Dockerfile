@@ -9,6 +9,7 @@ RUN apt-get update \
     python3 \
     build-essential \
     zip \
+    python3-pip \
   && rm -rf /var/lib/apt/lists/*
 RUN npm install -g openclaw@v2026.3.24
 WORKDIR /app
