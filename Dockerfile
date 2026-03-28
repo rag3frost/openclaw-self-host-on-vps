@@ -12,6 +12,8 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 RUN npm install -g openclaw@v2026.3.24
 WORKDIR /app
+COPY requirements.txt .
+RUN python3 -m pip install --no-cache-dir -r requirements.txt
 COPY package.json pnpm-lock.yaml ./
 RUN corepack enable && pnpm install --frozen-lockfile --prod
 COPY src ./src
