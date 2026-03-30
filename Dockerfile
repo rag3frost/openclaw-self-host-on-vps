@@ -15,11 +15,10 @@ RUN apt-get update \
   && curl -LsSf https://raw.githubusercontent.com/NVIDIA/OpenShell/main/install.sh | OPENSHELL_INSTALL_DIR=/usr/local/bin sh \
   && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh
 
-# Install Python 3.12 from backports for OpenSpace
-RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/sources.list.d/backports.list \
-    && apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y -t bookworm-backports python3.12 python3.12-venv python3.12-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Install Python 3.12 using uv (avoids backports issues)
+RUN uv python install 3.12 \
+    && python3.12 -m venv /opt/openspace-venv \
+    && /opt/openspace-venv/bin/pip install --upgrade pip
 
 RUN groupadd -g 1001 sandbox && \
     useradd -u 1001 -g sandbox -m -s /bin/bash sandbox
