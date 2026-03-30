@@ -147,6 +147,19 @@ network_policies:
     binaries:
       - { path: /usr/local/bin/node }
 
+  elevenlabs:
+    name: elevenlabs-tts-api
+    endpoints:
+      - host: api.elevenlabs.io
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+    binaries:
+      - { path: /usr/bin/python3 }
+      - { path: /usr/local/bin/node }
+
+
   # ── OpenClaw Infrastructure ──────────────────────────────────────────
   claw_infra:
     name: claw-infrastructure
