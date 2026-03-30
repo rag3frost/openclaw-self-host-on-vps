@@ -1,17 +1,16 @@
 
 import os
 import base64
-from elevenlabs import generate, set_api_key, ElevenLabsClient
 from google.cloud import texttospeech
 from google.oauth2 import service_account
 
-# Initialize ElevenLabs client (will use API key from env)
+# Initialize ElevenLabs client (new v1 API)
 elevenlabs_client = None
 try:
+    from elevenlabs.client import ElevenLabs
     elevenlabs_api_key = os.environ.get("ELEVENLABS_API_KEY")
     if elevenlabs_api_key:
-        set_api_key(elevenlabs_api_key)
-        elevenlabs_client = ElevenLabsClient(elevenlabs_api_key)
+        elevenlabs_client = ElevenLabs(api_key=elevenlabs_api_key)
 except Exception as e:
     print(f"ElevenLabs client initialization failed: {e}")
 
@@ -35,8 +34,14 @@ def speak_text(text: str):
     # 1. Try ElevenLabs
     if elevenlabs_client:
         try:
-            audio = generate(text=text, voice="Rachel") # Using a default voice
-            audio_base64 = base64.b64encode(audio).decode('utf-8')
+            # Generate audio using the new v1 API
+            audio_response = elevenlabs_client.generate(
+                text=text,
+                voice="Rachel",  # default voice
+                model="eleven_multilingual_v2"
+            )
+            # audio_response.content is bytes
+            audio_base64 = base64.b64encode(audio_response.content).decode('utf-8')
             return {
                 "success": True,
                 "provider": "ElevenLabs",
@@ -51,12 +56,10 @@ def speak_text(text: str):
     if google_tts_client:
         try:
             synthesis_input = texttospeech.SynthesisInput(text=text)
-            # Select the language and SSML voice type
             voice = texttospeech.VoiceSelectionParams(
                 language_code="en-US",
-                ssml_gender=texttospeech.SsmlVoiceGender.FEMALE # Or Male, Neutral
+                ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
             )
-            # Select the type of audio file you want returned
             audio_config = texttospeech.AudioConfig(
                 audio_encoding=texttospeech.AudioEncoding.MP3
             )
