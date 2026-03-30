@@ -57,6 +57,28 @@ export ANTHROPIC_API_KEY="" # Clear official key to force custom base URL
 # Run gateway in background
 gosu sandbox bash -c "openshell-gateway --daemon --data-dir /data/openshell > /data/openshell/gateway.log 2>&1 &"
 
-# Start NemoClaw wrapper
-echo "🚀 Starting NemoClaw server with NVIDIA OpenShell support..."
-exec gosu sandbox node src/server.js
+# OpenClaw setup & auth configuration via CLI (bypassing doctor wipes)
+gosu sandbox bash -c '
+  # Safely populate OpenRouter & NVIDIA configs so agent routing succeeds
+  openclaw config set auth.profiles.nvidia:default.provider nvidia 2>/dev/null || true
+  openclaw config set auth.profiles.nvidia:default.mode api_key 2>/dev/null || true
+  openclaw config set auth.profiles.openrouter:default.provider openrouter 2>/dev/null || true
+  openclaw config set auth.profiles.openrouter:default.mode api_key 2>/dev/null || true
+
+  openclaw config set agents.defaults.models.nvidia/nemotron-3-super.alias coding-primary 2>/dev/null || true
+  openclaw config set agents.defaults.models.openrouter/deepseek-ai/deepseek-r1.alias reasoning-primary 2>/dev/null || true
+  openclaw config set agents.defaults.models.openrouter/mistralai/devstral-2:free.alias coding-fallback 2>/dev/null || true
+  openclaw config set agents.defaults.models.openrouter/stepfun/step-3.5-flash:free.alias claude-substitute 2>/dev/null || true
+  openclaw config set agents.defaults.models.openrouter/meta-llama/llama-3.3-70b-instruct:free.alias creative 2>/dev/null || true
+'
+
+# Generate a gateway token if one wasn't fed by environment
+export GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-$(head -c 32 /dev/random | base64 | tr -dc 'a-zA-Z0-9' | head -c 32)}"
+
+echo "🚀 Starting Native OpenClaw Gateway in foreground..."
+gosu sandbox bash -c "openclaw gateway run --bind loopback --port 18789 --auth token --token $GATEWAY_TOKEN &"
+
+sleep 2
+
+echo "🚀 Starting OpenClaw Serve..."
+exec gosu sandbox bash -c "openclaw serve"
