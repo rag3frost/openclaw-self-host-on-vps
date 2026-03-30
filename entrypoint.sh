@@ -75,10 +75,5 @@ gosu sandbox bash -c '
 # Generate a gateway token if one wasn't fed by environment
 export GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-$(head -c 32 /dev/random | base64 | tr -dc 'a-zA-Z0-9' | head -c 32)}"
 
-echo "🚀 Starting Native OpenClaw Gateway in foreground..."
-gosu sandbox bash -c "openclaw gateway run --bind loopback --port 18789 --auth token --token $GATEWAY_TOKEN &"
-
-sleep 2
-
-echo "🚀 Starting OpenClaw Serve..."
-exec gosu sandbox bash -c "openclaw serve"
+echo "🚀 Starting Node Wrapper (Server/Serve functionality)..."
+exec gosu sandbox node src/server.js
