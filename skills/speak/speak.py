@@ -39,10 +39,18 @@ def _tts_gtts(text: str):
         audio_bytes = fp.read()
         fp.close()
         audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+        # Save to a file in /data/workspace/audio for easy retrieval
+        import time, os, pathlib
+        audio_dir = pathlib.Path('/data/workspace/audio')
+        audio_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"gtts_{int(time.time())}.mp3"
+        filepath = audio_dir / filename
+        filepath.write_bytes(audio_bytes)
         return {
             "success": True,
             "provider": "gTTS",
             "audio_base64": audio_base64,
+            "audio_path": str(filepath),
             "message": "Audio generated successfully with gTTS."
         }
     except Exception as e:
@@ -62,10 +70,18 @@ def speak_text(text: str):
             )
             audio_bytes = b"".join(chunk for chunk in audio_generator)
             audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+            # Save to a file
+            import time, pathlib
+            audio_dir = pathlib.Path('/data/workspace/audio')
+            audio_dir.mkdir(parents=True, exist_ok=True)
+            filename = f"elevenlabs_{int(time.time())}.mp3"
+            filepath = audio_dir / filename
+            filepath.write_bytes(audio_bytes)
             return {
                 "success": True,
                 "provider": "ElevenLabs",
                 "audio_base64": audio_base64,
+                "audio_path": str(filepath),
                 "message": "Audio generated successfully with ElevenLabs."
             }
         except Exception as e:
@@ -86,11 +102,20 @@ def speak_text(text: str):
             response = google_tts_client.synthesize_speech(
                 input=synthesis_input, voice=voice, audio_config=audio_config
             )
-            audio_base64 = base64.b64encode(response.audio_content).decode('utf-8')
+            audio_bytes = response.audio_content
+            audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+            # Save to a file
+            import time, pathlib
+            audio_dir = pathlib.Path('/data/workspace/audio')
+            audio_dir.mkdir(parents=True, exist_ok=True)
+            filename = f"google_tts_{int(time.time())}.mp3"
+            filepath = audio_dir / filename
+            filepath.write_bytes(audio_bytes)
             return {
                 "success": True,
                 "provider": "GoogleCloudTTS",
                 "audio_base64": audio_base64,
+                "audio_path": str(filepath),
                 "message": "Audio generated successfully with Google Cloud Text-to-Speech."
             }
         except Exception as e:
