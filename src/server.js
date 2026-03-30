@@ -163,71 +163,12 @@ async function waitForGatewayReady(opts = {}) {
   return false;
 }
 
-async function patchOpenclawConfig() {
-  if (!isConfigured()) return;
-  try {
-    const cp = configPath();
-    let cfgStr = fs.readFileSync(cp, "utf8");
-    let cfg = JSON.parse(cfgStr);
-    let dirty = false;
-
-    cfg.auth = cfg.auth || { profiles: {} };
-    if (!cfg.auth.profiles["nvidia:default"]) {
-      cfg.auth.profiles["nvidia:default"] = { provider: "nvidia", mode: "api_key" };
-      dirty = true;
-    }
-    if (!cfg.auth.profiles["openrouter:default"]) {
-      cfg.auth.profiles["openrouter:default"] = { provider: "openrouter", mode: "api_key" };
-      dirty = true;
-    }
-
-    cfg.agents = cfg.agents || {};
-    cfg.agents.defaults = cfg.agents.defaults || {};
-    
-    // Explicitly set default primary orchestrator
-    cfg.agents.defaults.model = cfg.agents.defaults.model || {};
-    if (cfg.agents.defaults.model.primary !== "google/gemini-2.5-flash") {
-      cfg.agents.defaults.model.primary = "google/gemini-2.5-flash";
-      dirty = true;
-    }
-
-    cfg.agents.defaults.models = cfg.agents.defaults.models || {};
-    
-    const requiredModels = {
-      "google/gemini-3-flash-preview": { alias: "gemini-flash" },
-      "google/gemini-2.5-flash": { alias: "gemini-flash" },
-      "nvidia/nemotron-3-super": { alias: "coding-primary", provider: "nvidia:default" },
-      "openrouter/deepseek-ai/deepseek-r1": { alias: "reasoning-primary", provider: "openrouter:default" },
-      "openrouter/mistralai/devstral-2:free": { alias: "coding-fallback", provider: "openrouter:default" },
-      "openrouter/stepfun/step-3.5-flash:free": { alias: "claude-substitute", provider: "openrouter:default" },
-      "openrouter/meta-llama/llama-3.3-70b-instruct:free": { alias: "creative", provider: "openrouter:default" },
-      "nvidia/cosmos-reason2-8b": { alias: "vision-specialist", provider: "nvidia:default" }
-    };
-
-    for (const [m, spec] of Object.entries(requiredModels)) {
-      // Re-apply if missing OR if alias has changed
-      if (!cfg.agents.defaults.models[m] || cfg.agents.defaults.models[m].alias !== spec.alias) {
-        cfg.agents.defaults.models[m] = spec;
-        dirty = true;
-      }
-    }
-
-    if (dirty) {
-      fs.writeFileSync(cp, JSON.stringify(cfg, null, 2));
-      console.log("[wrapper] auto-patched openclaw.json with subagents");
-    }
-  } catch (err) {
-    console.error("[wrapper] error patching config:", err);
-  }
-}
-
 async function startGateway() {
   if (gatewayProc) return;
   if (!isConfigured()) throw new Error("Gateway cannot start: not configured");
 
   fs.mkdirSync(STATE_DIR, { recursive: true });
   fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
-  await patchOpenclawConfig();
 
   // for (const lockPath of [
   //   path.join(STATE_DIR, "gateway.lock"),
@@ -534,6 +475,14 @@ app.get("/setup/api/status", requireSetupAuth, async (_req, res) => {
         { value: "opencode-zen", label: "OpenCode Zen (multi-model proxy)" },
       ],
     },
+    {
+      value: "nvidia",
+      label: "NVIDIA NIM",
+      hint: "NVIDIA Build API key",
+      options: [
+        { value: "nvidia-api-key", label: "NVIDIA NIM API key" },
+      ],
+    },
   ];
 
   res.json({
@@ -586,6 +535,7 @@ function buildOnboardArgs(payload) {
       "minimax-api-lightning": "--minimax-api-key",
       "synthetic-api-key": "--synthetic-api-key",
       "opencode-zen": "--opencode-zen-api-key",
+      "nvidia-api-key": "--nvidia-api-key",
     };
     const flag = map[payload.authChoice];
     if (flag && secret) {
@@ -637,6 +587,7 @@ const VALID_AUTH_CHOICES = [
   "copilot-proxy",
   "synthetic-api-key",
   "opencode-zen",
+  "nvidia-api-key",
 ];
 
 function validatePayload(payload) {
