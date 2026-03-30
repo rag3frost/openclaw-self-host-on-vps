@@ -1,8 +1,10 @@
 
 import os
 import base64
+import io
 from google.cloud import texttospeech
 from google.oauth2 import service_account
+from gtts import gTTS
 
 # Initialize ElevenLabs client (new v1 API)
 elevenlabs_client = None
@@ -27,6 +29,25 @@ try:
 except Exception as e:
     print(f"Google Cloud TTS client initialization failed: {e}")
 
+def _tts_gtts(text: str):
+    """Generate speech using gTTS (Google Translate TTS), free, no API key."""
+    try:
+        tts = gTTS(text=text, lang='en', slow=False)
+        fp = io.BytesIO()
+        tts.write_to_fp(fp)
+        fp.seek(0)
+        audio_bytes = fp.read()
+        fp.close()
+        audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+        return {
+            "success": True,
+            "provider": "gTTS",
+            "audio_base64": audio_base64,
+            "message": "Audio generated successfully with gTTS."
+        }
+    except Exception as e:
+        return {"success": False, "error": f"gTTS error: {str(e)}"}
+
 def speak_text(text: str):
     audio_base64 = None
     error_message = ""
@@ -34,13 +55,11 @@ def speak_text(text: str):
     # 1. Try ElevenLabs
     if elevenlabs_client:
         try:
-            # Generate audio using the new v1 API (returns generator)
             audio_generator = elevenlabs_client.text_to_speech.convert(
                 text=text,
-                voice_id="21m00Tcm4TlvDq8ikWAM",
+                voice_id="21m00Tcm4TlvDq8ikWAM",  # Rachel
                 model_id="eleven_multilingual_v2"
             )
-            # Collect all chunks
             audio_bytes = b"".join(chunk for chunk in audio_generator)
             audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
             return {
@@ -77,7 +96,14 @@ def speak_text(text: str):
         except Exception as e:
             error_message += f"Google Cloud TTS API error: {str(e)}. "
             print(f"Google Cloud TTS failed: {e}")
-    
+
+    # 3. Fallback to gTTS (free, no API key required)
+    result = _tts_gtts(text)
+    if result.get("success"):
+        return result
+    else:
+        error_message += result.get("error", "")
+
     return {"success": False, "error": error_message or "No TTS provider could generate audio."}
 
 if __name__ == "__main__":
