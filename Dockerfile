@@ -15,14 +15,27 @@ RUN apt-get update \
   && curl -LsSf https://raw.githubusercontent.com/NVIDIA/OpenShell/main/install.sh | OPENSHELL_INSTALL_DIR=/usr/local/bin sh \
   && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh
 
+# Install Python 3.12 from backports for OpenSpace
+RUN echo "deb http://deb.debian.org/debian bookworm-backports main" >> /etc/apt/sources.list \
+    && apt-get update \
+    && apt-get install -y -t bookworm-backports python3.12 python3.12-venv python3.12-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd -g 1001 sandbox && \
     useradd -u 1001 -g sandbox -m -s /bin/bash sandbox
 
 RUN npm install -g openclaw@v2026.3.24 mcporter
 
-# Install OpenSpace (self-evolving engine)
+# Install OpenSpace (self-evolving engine) using Python 3.12
 RUN git clone https://github.com/HKUDS/OpenSpace.git /opt/OpenSpace \
-    && pip3 install --break-system-packages --no-cache-dir -e /opt/OpenSpace
+    && python3.12 -m venv /opt/openspace-venv \
+    && /opt/openspace-venv/bin/pip install --upgrade pip \
+    && /opt/openspace-venv/bin/pip install -e /opt/OpenSpace
+
+# Make OpenSpace venv available on PATH for openspace and openspace-mcp
+ENV PATH="/opt/openspace-venv/bin:${PATH}"
+# Set OpenSpace workspace
+ENV OPENSPACE_WORKSPACE="/opt/OpenSpace"
 
 # Register OpenSpace MCP server with mcporter for OpenClaw
 RUN mcporter config add openspace --command "openspace-mcp" \
@@ -51,8 +64,6 @@ ENV HOMEBREW_CELLAR="/home/linuxbrew/.linuxbrew/Cellar"
 ENV HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew/Homebrew"
 ENV PORT=8080
 ENV OPENCLAW_ENTRY=/usr/local/lib/node_modules/openclaw/dist/entry.js
-# Set OpenSpace workspace
-ENV OPENSPACE_WORKSPACE="/opt/OpenSpace"
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD curl -f http://localhost:8080/setup/healthz || exit 1
