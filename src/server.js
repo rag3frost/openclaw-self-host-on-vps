@@ -475,6 +475,14 @@ app.get("/setup/api/status", requireSetupAuth, async (_req, res) => {
         { value: "opencode-zen", label: "OpenCode Zen (multi-model proxy)" },
       ],
     },
+    {
+      value: "nvidia",
+      label: "NVIDIA NIM",
+      hint: "NVIDIA Build API key",
+      options: [
+        { value: "nvidia-api-key", label: "NVIDIA NIM API key" },
+      ],
+    },
   ];
 
   res.json({
@@ -527,6 +535,7 @@ function buildOnboardArgs(payload) {
       "minimax-api-lightning": "--minimax-api-key",
       "synthetic-api-key": "--synthetic-api-key",
       "opencode-zen": "--opencode-zen-api-key",
+      "nvidia-api-key": "--nvidia-api-key",
     };
     const flag = map[payload.authChoice];
     if (flag && secret) {
@@ -578,6 +587,7 @@ const VALID_AUTH_CHOICES = [
   "copilot-proxy",
   "synthetic-api-key",
   "opencode-zen",
+  "nvidia-api-key",
 ];
 
 function validatePayload(payload) {

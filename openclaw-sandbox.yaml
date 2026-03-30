@@ -1,0 +1,164 @@
+version: 1
+
+# Filesystem Policy: Locked at sandbox creation
+# Confines the agent to its workspace and temporary directories.
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /app
+    - /etc
+    - /var/log
+    - /sandbox/.openclaw            # Immutable gateway config
+  read_write:
+    - /sandbox
+    - /tmp
+    - /dev/null
+    - /sandbox/.openclaw-data       # Writable agent/plugin state
+
+# Process Isolation: Kernel-level enforcement
+landlock:
+  compatibility: best_effort
+
+# Identity: Ensure the agent runs as the dedicated sandbox user
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+
+network_policies:
+  # ── Inference APIs ───────────────────────────────────────────────────
+  nvidia:
+    name: nvidia-inference-api
+    endpoints:
+      - host: integrate.api.nvidia.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+      - host: inference-api.nvidia.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+      - host: api.nvidia.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+    binaries:
+      - { path: /usr/local/bin/openclaw }
+      - { path: /usr/local/bin/node }
+
+  claude_code:
+    name: anthropic-claude-code
+    endpoints:
+      - host: api.anthropic.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+      - host: openrouter.ai
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+      - host: statsig.anthropic.com
+        port: 443
+        enforcement: enforce
+      - host: sentry.io
+        port: 443
+        enforcement: enforce
+    binaries:
+      - { path: /usr/local/bin/claude }
+      - { path: /usr/local/bin/node }
+
+  google_api:
+    name: google-gemini-api
+    endpoints:
+      - host: generativelanguage.googleapis.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+    binaries:
+      - { path: /usr/local/bin/openclaw }
+      - { path: /usr/local/bin/node }
+
+  openrouter_api:
+    name: openrouter-rest-api
+    endpoints:
+      - host: openrouter.ai
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+    binaries:
+      - { path: /usr/local/bin/openclaw }
+      - { path: /usr/local/bin/node }
+
+  # ── Source Control & Packages ───────────────────────────────────────
+  github:
+    name: github-access
+    endpoints:
+      - host: github.com
+        port: 443
+        access: full
+      - host: api.github.com
+        port: 443
+        access: full
+    binaries:
+      - { path: /usr/bin/git }
+      - { path: /usr/local/bin/openclaw }
+
+  npm_registry:
+    name: npm-registry
+    endpoints:
+      - host: registry.npmjs.org
+        port: 443
+        access: full
+    binaries:
+      - { path: /usr/local/bin/openclaw }
+      - { path: /usr/local/bin/npm }
+
+  # ── Messaging ───────────────────────────────────────────────────────
+  # Restricted to node processes to prevent exfiltration via curl/wget
+  telegram:
+    name: telegram-api
+    endpoints:
+      - host: api.telegram.org
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+    binaries:
+      - { path: /usr/local/bin/node }
+
+  discord:
+    name: discord-api
+    endpoints:
+      - host: discord.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+    binaries:
+      - { path: /usr/local/bin/node }
+
+  # ── OpenClaw Infrastructure ──────────────────────────────────────────
+  claw_infra:
+    name: claw-infrastructure
+    endpoints:
+      - host: clawhub.com
+        port: 443
+        access: full
+      - host: openclaw.ai
+        port: 443
+        access: full
+      - host: docs.openclaw.ai
+        port: 443
+        access: full
+    binaries:
+      - { path: /usr/local/bin/openclaw }

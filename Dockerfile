@@ -11,7 +11,14 @@ RUN apt-get update \
     zip \
     python3-pip \
     python3.11-venv \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* \
+  && curl -LsSf https://raw.githubusercontent.com/NVIDIA/OpenShell/main/install.sh | OPENSHELL_INSTALL_DIR=/usr/local/bin sh \
+  && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh \
+  && npm install -g @nvidia/nemoclaw @anthropic-ai/claude-code
+
+RUN groupadd -g 1001 sandbox && \
+    useradd -u 1001 -g sandbox -m -s /bin/bash sandbox
+
 RUN npm install -g openclaw@v2026.3.24
 WORKDIR /app
 COPY requirements.txt .

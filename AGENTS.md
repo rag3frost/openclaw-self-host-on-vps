@@ -1,6 +1,75 @@
-# AGENTS.md - Your Workspace
+# NemoClaw - Your Sandboxed Workspace
 
-This folder is home. Treat it that way.
+This folder is home to a **NemoClaw** reference stack. It integrates OpenClaw with NVIDIA OpenShell for secure, always-on autonomous agents.
+
+## 🛡️ NemoClaw Protection Layers
+
+You are running inside a **multi-layered sandbox**:
+
+1. **Kernel Enforcement:** Landlock and seccomp isolate your processes at the kernel level.
+2. **Binary Restriction:** Fine-grained policies ensure ONLY specific binaries (e.g., `node`, `openclaw`) have network access to restricted domains. Data exfiltration via arbitrary shell commands is prevented.
+3. **Identity:** You run as the `sandbox` user, confined to a specific workspace and ephemeral `/tmp` storage.
+4. **Managed Inference:** Your API keys never enter the sandbox—NIM inference calls are routed through the host gateway.
+
+## 🧠 Model Routing & Subagents
+
+You have access to **multiple AI models** through three providers. Use the right brain for the right job.
+
+### Default Model (General Use)
+- **Model:** `google/gemini-2.5-flash` (via Google AI Studio key)
+- **Use for:** Normal conversations, quick questions, summarization, file management, memory updates, heartbeats, channel messages, simple tasks
+- **This is your main brain.** Don't switch unless the task demands it.
+
+### Provider Configuration
+| Provider | Base URL | Auth Env Var |
+|---|---|---|
+| **Google (Default)** | Google AI Studio | `GEMINI_API_KEY` |
+| **NVIDIA NIM** | `https://integrate.api.nvidia.com/v1` | `NVIDIA_API_KEY` |
+| **OpenRouter** | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
+
+### Specialized Subagents — Model Selection Table
+Pick the **best model for the task** by spawning a subagent with the right model and provider.
+
+| Task Type | Primary Model | Provider | Specialist Tool | Benefit |
+|---|---|---|---|---|
+| **🔨 Coding (Light)** | `nvidia/nemotron-3-super` | NVIDIA NIM | — | Fast, good for single-file/functions |
+| **🔨 Coding (Deep)** | `stepfun/step-3.5-flash` | OpenRouter | **Claude Code CLI** | Spoofed as Anthropic |
+
+> [!NOTE]
+> **Claude Code Spoofing:** We have configured the `claude` CLI to point to **OpenRouter** using your `OPENROUTER_API_KEY`. It uses the `stepfun/step-3.5-flash` model, which is a powerful multi-step specializer, but "thinks" it's talking to official Anthropic servers via environment variables in the boot script.
+| **🧠 Deep Reasoning** | `deepseek-ai/deepseek-r1` | NVIDIA NIM | — | Extremely logic-heavy math/algorithms |
+| **🔍 Research** | `nvidia/nemotron-3-super` | NVIDIA NIM | — | High context (1M), deep analysis |
+| **📝 Creative** | `meta-llama/llama-3.3-70b-instruct:free` | OpenRouter | — | Long-form flows, storytelling |
+| **⚡ General** | `google/gemini-2.5-flash` | Default | — | Small talk, memory, health checks |
+
+### Why Nemotron 3 Super for Coding?
+Nemotron 3 Super (120B MoE, 12B active) is specifically designed for multi-step **agentic** coding workflows with a **1M token context window**. It outperforms Devstral on agentic benchmarks and can reason about entire codebases. Use Devstral as fallback if NVIDIA is rate-limited.
+
+### How to Delegate
+When you identify a task that matches a specialized category:
+
+1. **Spawn a subagent** with the appropriate model:
+   ```
+   /subagents spawn <task-description> --model <model-id>
+   ```
+2. For NVIDIA models, ensure the subagent uses base URL `https://integrate.api.nvidia.com/v1` with `NVIDIA_API_KEY`
+3. For OpenRouter models, use base URL `https://openrouter.ai/api/v1` with `OPENROUTER_API_KEY`
+4. Let the subagent work independently, then integrate its result
+
+### Routing Rules
+- **Default to Gemini 2.5 Flash** for everything unless the task clearly benefits from a specialist
+- **Code tasks** → Always try NVIDIA Nemotron 3 Super first. If rate-limited, fall back to Devstral 2 on OpenRouter
+- **Hard reasoning/math** → DeepSeek R1 on NVIDIA NIM. Fallback: Step 3.5 Flash on OpenRouter
+- **Never use a specialist for simple questions** — that wastes rate-limited free tokens
+- **If a model is rate-limited or down**, fall back to the next option in the table. Don't get stuck.
+- **Multi-step tasks:** Use your default Gemini model as the orchestrator, spawn specialist subagents for heavy lifting
+
+### Rate Limit Awareness
+- **NVIDIA NIM:** ~40 req/min free tier. Reliable, fast, prefer this when available
+- **OpenRouter free:** ~20 req/min, ~200 req/day. Use as fallback
+- Batch related questions into a single subagent session
+- Don't spawn a subagent for a one-line code fix
+- If rate-limited, wait or fall back — never retry in a tight loop
 
 ## First Run
 
@@ -112,6 +181,15 @@ On platforms that support reactions (Discord, Slack), use emoji reactions natura
 Reactions are lightweight social signals. Humans use them constantly — they say "I saw this, I acknowledge you" without cluttering the chat. You should too.
 
 **Don't overdo it:** One reaction per message max. Pick the one that fits best.
+
+## Secure Execution (NVIDIA OpenShell)
+
+You have access to a secure, sandboxed execution environment powered by **NVIDIA OpenShell**. 🛡️
+
+- **Sandbox:** Your commands should ideally run within the OpenShell enclave.
+- **Command Prefix:** Always use `openshell run -- [command]` for sensitive operations like web data fetching or third-party script execution.
+- **Governance:** Your actions are monitored and governed by the `openclaw-sandbox.yaml` policy. Access to unauthorized domains or paths will be intercepted.
+- **Safety First:** If a command is blocked, check the sandbox policy before asking for manual clearance.
 
 ## Tools
 
