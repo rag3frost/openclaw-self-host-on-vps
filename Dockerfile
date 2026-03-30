@@ -16,9 +16,9 @@ RUN apt-get update \
   && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh
 
 # Install Python 3.12 from backports for OpenSpace
-RUN echo "deb http://deb.debian.org/debian bookworm-backports main" >> /etc/apt/sources.list \
+RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/sources.list.d/backports.list \
     && apt-get update \
-    && apt-get install -y -t bookworm-backports python3.12 python3.12-venv python3.12-dev \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y -t bookworm-backports python3.12 python3.12-venv python3.12-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -g 1001 sandbox && \
