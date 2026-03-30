@@ -13,14 +13,9 @@ RUN apt-get update \
   && curl -LsSf https://raw.githubusercontent.com/NVIDIA/OpenShell/main/install.sh | OPENSHELL_INSTALL_DIR=/usr/local/bin sh \
   && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh
 
-# Install Python 3.12 using apt and create venv
-RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      python3.12 \
-      python3.12-venv \
-      python3.12-dev \
-    && rm -rf /var/lib/apt/lists/* \
-    && python3.12 -m venv /opt/openspace-venv
+# Install Python 3.12 using uv and create venv
+RUN uv python install 3.12 \
+    && uv venv /opt/openspace-venv
 
 # Upgrade pip in the venv
 RUN /opt/openspace-venv/bin/pip install --upgrade pip setuptools wheel
