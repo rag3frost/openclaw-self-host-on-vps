@@ -22,8 +22,8 @@ try:
         credentials = service_account.Credentials.from_service_account_file(credentials_path)
         google_tts_client = texttospeech.TextToSpeechClient(credentials=credentials)
     else:
-        # Fallback to default credentials if path not set or file not found
-        google_tts_client = texttospeech.TextToSpeechClient()
+        # Skip initialization; no credentials provided
+        print("Google Cloud TTS: GOOGLE_APPLICATION_CREDENTIALS not set, skipping.")
 except Exception as e:
     print(f"Google Cloud TTS client initialization failed: {e}")
 
@@ -35,13 +35,13 @@ def speak_text(text: str):
     if elevenlabs_client:
         try:
             # Generate audio using the new v1 API
-            audio_response = elevenlabs_client.generate(
+            audio_response = elevenlabs_client.text_to_speech.convert(
                 text=text,
-                voice="Rachel",  # default voice
-                model="eleven_multilingual_v2"
+                voice_id="Rachel",
+                model_id="eleven_multilingual_v2"
             )
-            # audio_response.content is bytes
-            audio_base64 = base64.b64encode(audio_response.content).decode('utf-8')
+            # audio_response is bytes
+            audio_base64 = base64.b64encode(audio_response).decode('utf-8')
             return {
                 "success": True,
                 "provider": "ElevenLabs",
