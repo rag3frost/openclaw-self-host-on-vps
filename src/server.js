@@ -163,12 +163,72 @@ async function waitForGatewayReady(opts = {}) {
   return false;
 }
 
+async function patchOpenclawConfig() {
+  if (!isConfigured()) return;
+  try {
+    const cp = configPath();
+    let cfgStr = fs.readFileSync(cp, "utf8");
+    let cfg = JSON.parse(cfgStr);
+    let dirty = false;
+
+    cfg.auth = cfg.auth || { profiles: {} };
+    if (!cfg.auth.profiles["nvidia:default"]) {
+      cfg.auth.profiles["nvidia:default"] = { provider: "nvidia", mode: "api_key" };
+      dirty = true;
+    }
+    if (!cfg.auth.profiles["openrouter:default"]) {
+      cfg.auth.profiles["openrouter:default"] = { provider: "openrouter", mode: "api_key" };
+      dirty = true;
+    }
+
+    cfg.agents = cfg.agents || {};
+    cfg.agents.defaults = cfg.agents.defaults || {};
+    
+    // Explicitly set default primary orchestrator
+    cfg.agents.defaults.model = cfg.agents.defaults.model || {};
+    if (cfg.agents.defaults.model.primary !== "google/gemini-2.5-flash") {
+      cfg.agents.defaults.model.primary = "google/gemini-2.5-flash";
+      dirty = true;
+    }
+
+    cfg.agents.defaults.models = cfg.agents.defaults.models || {};
+    
+    // OpenClaw infers the provider from the string prefix, do NOT add a "provider" key here.
+    const requiredModels = {
+      "google/gemini-3-flash-preview": { alias: "gemini-flash" },
+      "google/gemini-2.5-flash": { alias: "gemini-flash" },
+      "nvidia/nemotron-3-super": { alias: "coding-primary" },
+      "openrouter/deepseek-ai/deepseek-r1": { alias: "reasoning-primary" },
+      "openrouter/mistralai/devstral-2:free": { alias: "coding-fallback" },
+      "openrouter/stepfun/step-3.5-flash:free": { alias: "claude-substitute" },
+      "openrouter/meta-llama/llama-3.3-70b-instruct:free": { alias: "creative" },
+      "nvidia/cosmos-reason2-8b": { alias: "vision-specialist" }
+    };
+
+    for (const [m, spec] of Object.entries(requiredModels)) {
+      // Re-apply if missing OR if alias has changed
+      if (!cfg.agents.defaults.models[m] || cfg.agents.defaults.models[m].alias !== spec.alias) {
+        cfg.agents.defaults.models[m] = spec;
+        dirty = true;
+      }
+    }
+
+    if (dirty) {
+      fs.writeFileSync(cp, JSON.stringify(cfg, null, 2));
+      console.log("[wrapper] auto-patched openclaw.json with subagents");
+    }
+  } catch (err) {
+    console.error("[wrapper] error patching config:", err);
+  }
+}
+
 async function startGateway() {
   if (gatewayProc) return;
   if (!isConfigured()) throw new Error("Gateway cannot start: not configured");
 
   fs.mkdirSync(STATE_DIR, { recursive: true });
   fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
+  await patchOpenclawConfig();
 
   // for (const lockPath of [
   //   path.join(STATE_DIR, "gateway.lock"),
