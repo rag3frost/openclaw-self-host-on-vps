@@ -37,7 +37,7 @@ def speak_text(text: str):
             # Generate audio using the new v1 API (returns generator)
             audio_generator = elevenlabs_client.text_to_speech.convert(
                 text=text,
-                voice_id="Rachel",
+                voice_id="21m00Tcm4TlvDq8ikWAM",
                 model_id="eleven_multilingual_v2"
             )
             # Collect all chunks
