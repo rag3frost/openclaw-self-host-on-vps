@@ -29,6 +29,7 @@ RUN corepack enable && pnpm install --frozen-lockfile --prod
 COPY src ./src
 COPY entrypoint.sh ./entrypoint.sh
 COPY git_setup.sh ./git_setup.sh
+COPY openclaw-sandbox.yaml ./openclaw-sandbox.yaml
 RUN chmod +x ./entrypoint.sh ./git_setup.sh
 RUN useradd -m -s /bin/bash openclaw \
   && chown -R openclaw:openclaw /app \
