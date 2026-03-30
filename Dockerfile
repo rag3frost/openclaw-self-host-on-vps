@@ -19,7 +19,17 @@ RUN apt-get update \
 RUN groupadd -g 1001 sandbox && \
     useradd -u 1001 -g sandbox -m -s /bin/bash sandbox
 
-RUN npm install -g openclaw@v2026.3.24
+RUN npm install -g openclaw@v2026.3.24 mcporter
+
+# Install OpenSpace (self-evolving engine)
+RUN git clone https://github.com/HKUDS/OpenSpace.git /opt/OpenSpace \
+    && pip3 install --break-system-packages --no-cache-dir -e /opt/OpenSpace
+
+# Register OpenSpace MCP server with mcporter for OpenClaw
+RUN mcporter config add openspace --command "openspace-mcp" \
+    --env OPENSPACE_HOST_SKILL_DIRS="/data/workspace/skills" \
+    --env OPENSPACE_WORKSPACE="/opt/OpenSpace"
+
 WORKDIR /app
 COPY requirements.txt .
 RUN pip3 install --break-system-packages --no-cache-dir -r requirements.txt
@@ -42,6 +52,10 @@ ENV HOMEBREW_CELLAR="/home/linuxbrew/.linuxbrew/Cellar"
 ENV HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew/Homebrew"
 ENV PORT=8080
 ENV OPENCLAW_ENTRY=/usr/local/lib/node_modules/openclaw/dist/entry.js
+# Set OpenSpace workspace
+ENV OPENSPACE_WORKSPACE="/opt/OpenSpace"
+# Set OpenSpace workspace
+ENV OPENSPACE_WORKSPACE="/opt/OpenSpace"
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD curl -f http://localhost:8080/setup/healthz || exit 1

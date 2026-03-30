@@ -2,4 +2,3 @@ elevenlabs>=1.2.0
 requests==2.31.0
 google-cloud-texttospeech==2.14.0
 gtts==2.5.3
-openspace-mcp
