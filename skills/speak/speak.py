@@ -34,14 +34,15 @@ def speak_text(text: str):
     # 1. Try ElevenLabs
     if elevenlabs_client:
         try:
-            # Generate audio using the new v1 API
-            audio_response = elevenlabs_client.text_to_speech.convert(
+            # Generate audio using the new v1 API (returns generator)
+            audio_generator = elevenlabs_client.text_to_speech.convert(
                 text=text,
                 voice_id="Rachel",
                 model_id="eleven_multilingual_v2"
             )
-            # audio_response is bytes
-            audio_base64 = base64.b64encode(audio_response).decode('utf-8')
+            # Collect all chunks
+            audio_bytes = b"".join(chunk for chunk in audio_generator)
+            audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
             return {
                 "success": True,
                 "provider": "ElevenLabs",
