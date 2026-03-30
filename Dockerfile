@@ -13,8 +13,7 @@ RUN apt-get update \
     python3.11-venv \
   && rm -rf /var/lib/apt/lists/* \
   && curl -LsSf https://raw.githubusercontent.com/NVIDIA/OpenShell/main/install.sh | OPENSHELL_INSTALL_DIR=/usr/local/bin sh \
-  && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh \
-  && npm install -g nemoclaw @anthropic-ai/claude-code
+  && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh
 
 RUN groupadd -g 1001 sandbox && \
     useradd -u 1001 -g sandbox -m -s /bin/bash sandbox
@@ -52,8 +51,6 @@ ENV HOMEBREW_CELLAR="/home/linuxbrew/.linuxbrew/Cellar"
 ENV HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew/Homebrew"
 ENV PORT=8080
 ENV OPENCLAW_ENTRY=/usr/local/lib/node_modules/openclaw/dist/entry.js
-# Set OpenSpace workspace
-ENV OPENSPACE_WORKSPACE="/opt/OpenSpace"
 # Set OpenSpace workspace
 ENV OPENSPACE_WORKSPACE="/opt/OpenSpace"
 EXPOSE 8080
