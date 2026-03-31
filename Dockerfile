@@ -20,10 +20,10 @@ RUN apt-get update && \
     && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh \
     && uv python install 3.12 \
     && uv venv /opt/openspace-venv \
-    && /opt/openspace-venv/bin/pip install --upgrade pip setuptools wheel \
+    && uv pip install --python /opt/openspace-venv/bin/python --upgrade pip setuptools wheel \
     && git clone https://github.com/HKUDS/OpenSpace.git /opt/OpenSpace \
-    && /opt/openspace-venv/bin/pip install -e /opt/OpenSpace \
-    && /opt/openspace-venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt
+    && uv pip install --python /opt/openspace-venv/bin/python -e /opt/OpenSpace \
+    && uv pip install --python /opt/openspace-venv/bin/python --no-cache-dir -r /tmp/requirements.txt
 
 # Add the OpenSpace virtual environment to PATH
 ENV PATH="/opt/openspace-venv/bin:${PATH}"
@@ -84,3 +84,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
 USER root
 
 ENTRYPOINT ["./entrypoint.sh"]
+
+
