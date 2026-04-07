@@ -274,20 +274,32 @@ async function startGateway() {
   fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
   await patchOpenclawConfig();
 
-  // Breaking the restart loop: Force-kill any zombie processes
-  // and clear lock files that prevent the gateway from starting.
-  console.log("[gateway] cleaning up existing processes and locks...");
-  await runCmd("pkill", ["-9", "-f", "openclaw gateway run"]).catch(() => {});
-  await runCmd("fuser", ["-k", `${INTERNAL_GATEWAY_PORT}/tcp`]).catch(() => {});
-  
-  const stopResult = await runCmd(OPENCLAW_NODE, clawArgs(["gateway", "stop"]));
-  console.log("gateway", `stop result exit=${stopResult.code}`);
-
-  for (const lockPath of [
+  // Breaking the restart loop: Nuclear Cleanup
+  const lockFiles = [
     path.join(STATE_DIR, "gateway.lock"),
     "/tmp/openclaw-gateway.lock",
     "/var/run/openclaw-gateway.pid",
-  ]) {
+  ];
+
+  console.log("[gateway] performing surgical cleanup...");
+
+  // 1. Surgical Kill: Find PID from lock file
+  const gpLock = path.join(STATE_DIR, "gateway.lock");
+  if (fs.existsSync(gpLock)) {
+    try {
+      const pid = fs.readFileSync(gpLock, "utf8").trim();
+      if (pid && /^\d+$/.test(pid)) {
+        console.log(`[gateway] found zombie PID ${pid} in lock file. Killing...`);
+        await runCmd("kill", ["-9", pid]).catch(() => {});
+      }
+    } catch (e) {}
+  }
+
+  // 2. Generic Kill: Kill any process with "openclaw gateway run"
+  await runCmd("pkill", ["-9", "-f", "openclaw gateway run"]).catch(() => {});
+  
+  // 3. Clear all known lock paths
+  for (const lockPath of lockFiles) {
     try {
       if (fs.existsSync(lockPath)) {
         fs.unlinkSync(lockPath);
@@ -296,8 +308,16 @@ async function startGateway() {
     } catch (err) {}
   }
   
-  // Brief pause to allow the OS to free the port
-  await sleep(1000);
+  // 4. Port Rotation Fallback:
+  // If we keep failing, try a different port (swapping 18789 <-> 18790)
+  const attempts = parseInt(process.env.OPENCLAW_RESTART_COUNT || "0", 10);
+  const currentPort = attempts > 3 ? (INTERNAL_GATEWAY_PORT + 1) : INTERNAL_GATEWAY_PORT;
+  if (currentPort !== INTERNAL_GATEWAY_PORT) {
+    console.log(`[gateway] detected port conflict loop. Swapping to port ${currentPort}`);
+  }
+
+  // Brief pause to allow the OS to free resources
+  await sleep(1500);
 
   const args = [
     "gateway",
@@ -305,13 +325,16 @@ async function startGateway() {
     "--bind",
     "loopback",
     "--port",
-    String(INTERNAL_GATEWAY_PORT),
+    String(currentPort),
     "--auth",
     "token",
     "--token",
     OPENCLAW_GATEWAY_TOKEN,
     "--allow-unconfigured",
   ];
+
+  // Update process.env for the next potential restart loop
+  process.env.OPENCLAW_RESTART_COUNT = String(attempts + 1);
 
   gatewayProc = childProcess.spawn(OPENCLAW_NODE, clawArgs(args), {
     stdio: "inherit",

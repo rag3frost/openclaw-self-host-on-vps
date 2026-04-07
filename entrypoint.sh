@@ -60,6 +60,11 @@ export ANTHROPIC_AUTH_TOKEN="$OPENROUTER_API_KEY"
 export ANTHROPIC_MODEL="stepfun/step-3.5-flash"
 export ANTHROPIC_API_KEY="" # Clear official key to force custom base URL
 
+# Ensure data directory exists and clear stale locks
+mkdir -p /data/.openclaw /data/workspace
+rm -f /data/.openclaw/*.lock 2>/dev/null || true
+chown -R sandbox:sandbox /data
+
 # Run gateway in background
 gosu sandbox bash -c "openshell-gateway --daemon --data-dir /data/openshell > /data/openshell/gateway.log 2>&1 &"
 

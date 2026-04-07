@@ -1,1 +1,1 @@
-Rebuild triggered: 2026-04-07 V7 — Restart Loop Fix, API Key Force-env, Telegram security bypass (auto-allow 5233187511)
+Rebuild triggered: 2026-04-07 V8 — Surgical PID Kill, Port Rotation Fallback, Startup Lock Wipe. Break the loop fix.
