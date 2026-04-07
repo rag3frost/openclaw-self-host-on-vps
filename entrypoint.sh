@@ -63,8 +63,28 @@ export ANTHROPIC_API_KEY="" # Clear official key to force custom base URL
 # Run gateway in background
 gosu sandbox bash -c "openshell-gateway --daemon --data-dir /data/openshell > /data/openshell/gateway.log 2>&1 &"
 
+# Validate Gemini API key on startup
+GEMINI_KEY="${GEMINI_API_KEY:-$GOOGLE_API_KEY}"
+if [ -n "$GEMINI_KEY" ]; then
+  echo "🔑 Testing Gemini API key (first 8 chars: ${GEMINI_KEY:0:8}...)..."
+  TEST_RESULT=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "Content-Type: application/json" \
+    -d '{"contents":[{"parts":[{"text":"hi"}]}]}' \
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}" 2>/dev/null || echo "000")
+  if [ "$TEST_RESULT" = "200" ]; then
+    echo "✅ Gemini API key is VALID (HTTP 200)"
+  else
+    echo "❌ Gemini API key test FAILED (HTTP $TEST_RESULT) — check if key is correct in Railway"
+  fi
+else
+  echo "⚠️ No GEMINI_API_KEY or GOOGLE_API_KEY found in environment!"
+fi
+
 # OpenClaw setup & auth configuration via CLI (bypassing doctor wipes)
 gosu sandbox bash -c '
+  # Force-reset Google auth profile to clear any permanent failure blacklist
+  openclaw config delete auth.profiles.google:default 2>/dev/null || true
+
   # Auth profiles: Google, NVIDIA, OpenRouter
   openclaw config set auth.profiles.google:default.provider google 2>/dev/null || true
   openclaw config set auth.profiles.google:default.mode api_key 2>/dev/null || true

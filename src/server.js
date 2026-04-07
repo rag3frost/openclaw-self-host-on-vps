@@ -172,15 +172,20 @@ async function patchOpenclawConfig() {
     let dirty = false;
 
     // --- Auth profiles: ensure google, nvidia, openrouter are all present ---
+    // IMPORTANT: Always force-overwrite google:default to clear any permanent
+    // auth failure blacklist that OpenClaw caches when a key is invalid.
     cfg.auth = cfg.auth || { profiles: {} };
     cfg.auth.profiles = cfg.auth.profiles || {};
 
-    const requiredProfiles = {
-      "google:default": { provider: "google", mode: "api_key" },
+    // Force-reset Google profile every time (clears auth_permanent blacklist)
+    cfg.auth.profiles["google:default"] = { provider: "google", mode: "api_key" };
+    dirty = true;
+
+    const otherProfiles = {
       "nvidia:default": { provider: "nvidia", mode: "api_key" },
       "openrouter:default": { provider: "openrouter", mode: "api_key" },
     };
-    for (const [key, val] of Object.entries(requiredProfiles)) {
+    for (const [key, val] of Object.entries(otherProfiles)) {
       if (!cfg.auth.profiles[key] || cfg.auth.profiles[key].provider !== val.provider) {
         cfg.auth.profiles[key] = val;
         dirty = true;
