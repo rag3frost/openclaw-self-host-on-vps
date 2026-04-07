@@ -1,1 +1,1 @@
-Rebuild triggered: 2026-04-07 — Switch primary model to openrouter/nvidia/nemotron-3-super-120b-a12b:free (all free models, no expired Google key)
+Rebuild triggered: 2026-04-07 V4 — Primary: google/gemini-2.5-flash with new API key, GEMINI_API_KEY passthrough fixed

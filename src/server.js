@@ -184,10 +184,10 @@ async function patchOpenclawConfig() {
     cfg.agents = cfg.agents || {};
     cfg.agents.defaults = cfg.agents.defaults || {};
 
-    // PRIMARY MODEL: Use free OpenRouter Nemotron to avoid Google API key expiry issues.
-    // We always enforce this so a stale openclaw.json can't revert to a paid/expired model.
+    // PRIMARY MODEL: google/gemini-2.5-flash — free via Google AI Studio.
+    // User has a fresh GOOGLE_API_KEY set in Railway env vars.
     cfg.agents.defaults.model = cfg.agents.defaults.model || {};
-    const desiredPrimary = "openrouter/nvidia/nemotron-3-super-120b-a12b:free";
+    const desiredPrimary = "google/gemini-2.5-flash";
     if (cfg.agents.defaults.model.primary !== desiredPrimary) {
       cfg.agents.defaults.model.primary = desiredPrimary;
       dirty = true;
@@ -195,10 +195,10 @@ async function patchOpenclawConfig() {
 
     cfg.agents.defaults.models = cfg.agents.defaults.models || {};
 
-    // OpenClaw infers the provider from the string prefix — do NOT add a "provider" key.
-    // Only free models listed here to avoid unexpected billing.
+    // All free models. OpenClaw infers provider from the string prefix.
     const requiredModels = {
-      "openrouter/nvidia/nemotron-3-super-120b-a12b:free": { alias: "coding-primary" },
+      "google/gemini-2.5-flash": { alias: "gemini-flash" },
+      "openrouter/nvidia/nemotron-3-nano-30b-a3b:free": { alias: "coding-primary" },
       "openrouter/deepseek-ai/deepseek-r1:free": { alias: "reasoning-primary" },
       "openrouter/mistralai/devstral-2:free": { alias: "coding-fallback" },
       "openrouter/stepfun/step-3.5-flash:free": { alias: "claude-substitute" },
@@ -262,6 +262,8 @@ async function startGateway() {
       ...process.env,
       OPENCLAW_STATE_DIR: STATE_DIR,
       OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
+      // Ensure Google plugin can find the key regardless of env var name
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "",
     },
   });
 
@@ -615,6 +617,7 @@ function runCmd(cmd, args, opts = {}) {
         ...process.env,
         OPENCLAW_STATE_DIR: STATE_DIR,
         OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
+        GEMINI_API_KEY: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "",
       },
     });
 
