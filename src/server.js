@@ -68,7 +68,11 @@ const INTERNAL_GATEWAY_PORT = Number.parseInt(
   10,
 );
 const INTERNAL_GATEWAY_HOST = process.env.INTERNAL_GATEWAY_HOST ?? "127.0.0.1";
-const GATEWAY_TARGET = `http://${INTERNAL_GATEWAY_HOST}:${INTERNAL_GATEWAY_PORT}`;
+let activeGatewayPort = INTERNAL_GATEWAY_PORT;
+
+function gatewayTarget() {
+  return `http://${INTERNAL_GATEWAY_HOST}:${activeGatewayPort}`;
+}
 
 const OPENCLAW_ENTRY =
   process.env.OPENCLAW_ENTRY?.trim() || "/openclaw/dist/entry.js";
@@ -137,11 +141,12 @@ async function waitForGatewayReady(opts = {}) {
   const timeoutMs = opts.timeoutMs ?? 60_000;
   const start = Date.now();
   const endpoints = ["/openclaw", "/openclaw", "/", "/health"];
+  const target = gatewayTarget();
 
   while (Date.now() - start < timeoutMs) {
     for (const endpoint of endpoints) {
       try {
-        const res = await fetch(`${GATEWAY_TARGET}${endpoint}`, {
+        const res = await fetch(`${target}${endpoint}`, {
           method: "GET",
         });
         if (res) {
@@ -283,6 +288,12 @@ async function startGateway() {
 
   console.log("[gateway] performing surgical cleanup...");
 
+  // Gracefully stop any supervised instance to clear stale lock ownership
+  const stopResult = await runCmd(OPENCLAW_NODE, clawArgs(["gateway", "stop"]));
+  if (stopResult.code !== 0) {
+    console.warn(`[gateway] graceful stop returned exit=${stopResult.code}`);
+  }
+
   // 1. Surgical Kill: Find PID from lock file
   const gpLock = path.join(STATE_DIR, "gateway.lock");
   if (fs.existsSync(gpLock)) {
@@ -297,6 +308,7 @@ async function startGateway() {
 
   // 2. Generic Kill: Kill any process with "openclaw gateway run"
   await runCmd("pkill", ["-9", "-f", "openclaw gateway run"]).catch(() => {});
+  await runCmd("pkill", ["-9", "-f", `${OPENCLAW_ENTRY} gateway run`]).catch(() => {});
   
   // 3. Clear all known lock paths
   for (const lockPath of lockFiles) {
@@ -312,6 +324,7 @@ async function startGateway() {
   // If we keep failing, try a different port (swapping 18789 <-> 18790)
   const attempts = parseInt(process.env.OPENCLAW_RESTART_COUNT || "0", 10);
   const currentPort = attempts > 3 ? (INTERNAL_GATEWAY_PORT + 1) : INTERNAL_GATEWAY_PORT;
+  activeGatewayPort = currentPort;
   if (currentPort !== INTERNAL_GATEWAY_PORT) {
     console.log(`[gateway] detected port conflict loop. Swapping to port ${currentPort}`);
   }
@@ -499,7 +512,7 @@ app.get("/setup/healthz", async (_req, res) => {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3000);
-      const r = await fetch(`${GATEWAY_TARGET}/`, { signal: controller.signal });
+      const r = await fetch(`${gatewayTarget()}/`, { signal: controller.signal });
       clearTimeout(timeout);
       gatewayReachable = r !== null;
     } catch { }
@@ -629,7 +642,7 @@ app.get("/setup/api/status", requireSetupAuth, async (_req, res) => {
 
   res.json({
     configured: isConfigured(),
-    gatewayTarget: GATEWAY_TARGET,
+    gatewayTarget: gatewayTarget(),
     openclawVersion: version,
     channelsAddHelp: channelsHelp,
     authGroups,
@@ -1194,7 +1207,7 @@ function createTuiWebSocketServer(httpServer) {
 }
 
 const proxy = httpProxy.createProxyServer({
-  target: GATEWAY_TARGET,
+  target: gatewayTarget(),
   ws: true,
   xfwd: true,
   changeOrigin: true,
@@ -1218,20 +1231,22 @@ proxy.on("error", (err, _req, res) => {
   }
 });
 
-const PROXY_ORIGIN = process.env.RAILWAY_PUBLIC_DOMAIN
-  ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-  : GATEWAY_TARGET;
+function proxyOrigin() {
+  return process.env.RAILWAY_PUBLIC_DOMAIN
+    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+    : gatewayTarget();
+}
 
 proxy.on("proxyReq", (proxyReq, req, res) => {
   if (!req.url?.startsWith("/hooks/")) {
     proxyReq.setHeader("Authorization", `Bearer ${OPENCLAW_GATEWAY_TOKEN}`);
   }
-  proxyReq.setHeader("Origin", PROXY_ORIGIN);
+  proxyReq.setHeader("Origin", proxyOrigin());
 });
 
 proxy.on("proxyReqWs", (proxyReq, req, socket, options, head) => {
   proxyReq.setHeader("Authorization", `Bearer ${OPENCLAW_GATEWAY_TOKEN}`);
-  proxyReq.setHeader("Origin", PROXY_ORIGIN);
+  proxyReq.setHeader("Origin", proxyOrigin());
 });
 
 app.use(async (req, res) => {
@@ -1261,7 +1276,7 @@ app.use(async (req, res) => {
     return res.redirect(`/openclaw?token=${OPENCLAW_GATEWAY_TOKEN}`);
   }
 
-  return proxy.web(req, res, { target: GATEWAY_TARGET });
+  return proxy.web(req, res, { target: gatewayTarget() });
 });
 
 const server = app.listen(PORT, () => {
@@ -1328,7 +1343,7 @@ server.on("upgrade", async (req, socket, head) => {
     socket.destroy();
     return;
   }
-  proxy.ws(req, socket, head, { target: GATEWAY_TARGET });
+  proxy.ws(req, socket, head, { target: gatewayTarget() });
 });
 
 async function gracefulShutdown(signal) {
