@@ -235,6 +235,7 @@ async function patchOpenclawConfig() {
       "openrouter/mistralai/devstral-2:free": { alias: "coding-fallback" },
       "openrouter/stepfun/step-3.5-flash:free": { alias: "claude-substitute" },
       "openrouter/meta-llama/llama-3.3-70b-instruct:free": { alias: "creative" },
+      "openrouter/qwen/qwen3.6-plus:free": { alias: "general" },
     };
 
     for (const [m, spec] of Object.entries(requiredModels)) {

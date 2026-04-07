@@ -95,6 +95,7 @@ gosu sandbox bash -c '
   openclaw config set agents.defaults.models."openrouter/mistralai/devstral-2:free".alias coding-fallback 2>/dev/null || true
   openclaw config set agents.defaults.models."openrouter/stepfun/step-3.5-flash:free".alias claude-substitute 2>/dev/null || true
   openclaw config set agents.defaults.models."openrouter/meta-llama/llama-3.3-70b-instruct:free".alias creative 2>/dev/null || true
+  openclaw config set agents.defaults.models."openrouter/qwen/qwen3.6-plus:free".alias general 2>/dev/null || true
 '
 
 # Generate a gateway token if one wasn't fed by environment
