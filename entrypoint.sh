@@ -65,14 +65,28 @@ gosu sandbox bash -c "openshell-gateway --daemon --data-dir /data/openshell > /d
 
 # OpenClaw setup & auth configuration via CLI (bypassing doctor wipes)
 gosu sandbox bash -c '
-  # Safely populate OpenRouter & NVIDIA configs so agent routing succeeds
+  # Auth profiles: Google, NVIDIA, OpenRouter
+  openclaw config set auth.profiles.google:default.provider google 2>/dev/null || true
+  openclaw config set auth.profiles.google:default.mode api_key 2>/dev/null || true
   openclaw config set auth.profiles.nvidia:default.provider nvidia 2>/dev/null || true
   openclaw config set auth.profiles.nvidia:default.mode api_key 2>/dev/null || true
   openclaw config set auth.profiles.openrouter:default.provider openrouter 2>/dev/null || true
   openclaw config set auth.profiles.openrouter:default.mode api_key 2>/dev/null || true
 
+  # Enable Google plugin
+  openclaw config set plugins.entries.google.enabled true 2>/dev/null || true
+
   # PRIMARY MODEL: google/gemini-2.5-flash (free via Google AI Studio)
   openclaw config set agents.defaults.model.primary "google/gemini-2.5-flash" 2>/dev/null || true
+
+  # Remove stale model entries that cause fallback to rate-limited OpenRouter
+  openclaw config delete agents.defaults.models."nvidia/nemotron-3-super" 2>/dev/null || true
+  openclaw config delete agents.defaults.models."nvidia/nemotron-3-super-120b-a12b:free" 2>/dev/null || true
+  openclaw config delete agents.defaults.models."openrouter/nvidia/nemotron-3-super-120b-a12b:free" 2>/dev/null || true
+  openclaw config delete agents.defaults.models."nvidia/cosmos-reason2-8b" 2>/dev/null || true
+  openclaw config delete agents.defaults.models."google/gemini-3-flash-preview" 2>/dev/null || true
+  openclaw config delete agents.defaults.models."deepseek-ai/deepseek-r1" 2>/dev/null || true
+  openclaw config delete agents.defaults.models."openrouter/deepseek-ai/deepseek-r1" 2>/dev/null || true
 
   # Free model aliases
   openclaw config set agents.defaults.models."google/gemini-2.5-flash".alias gemini-flash 2>/dev/null || true

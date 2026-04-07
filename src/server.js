@@ -171,31 +171,63 @@ async function patchOpenclawConfig() {
     let cfg = JSON.parse(cfgStr);
     let dirty = false;
 
+    // --- Auth profiles: ensure google, nvidia, openrouter are all present ---
     cfg.auth = cfg.auth || { profiles: {} };
-    if (!cfg.auth.profiles["nvidia:default"]) {
-      cfg.auth.profiles["nvidia:default"] = { provider: "nvidia", mode: "api_key" };
-      dirty = true;
+    cfg.auth.profiles = cfg.auth.profiles || {};
+
+    const requiredProfiles = {
+      "google:default": { provider: "google", mode: "api_key" },
+      "nvidia:default": { provider: "nvidia", mode: "api_key" },
+      "openrouter:default": { provider: "openrouter", mode: "api_key" },
+    };
+    for (const [key, val] of Object.entries(requiredProfiles)) {
+      if (!cfg.auth.profiles[key] || cfg.auth.profiles[key].provider !== val.provider) {
+        cfg.auth.profiles[key] = val;
+        dirty = true;
+      }
     }
-    if (!cfg.auth.profiles["openrouter:default"]) {
-      cfg.auth.profiles["openrouter:default"] = { provider: "openrouter", mode: "api_key" };
+
+    // --- Ensure Google plugin is enabled ---
+    cfg.plugins = cfg.plugins || {};
+    cfg.plugins.entries = cfg.plugins.entries || {};
+    if (!cfg.plugins.entries.google || !cfg.plugins.entries.google.enabled) {
+      cfg.plugins.entries.google = { enabled: true };
       dirty = true;
     }
 
+    // --- Primary model ---
     cfg.agents = cfg.agents || {};
     cfg.agents.defaults = cfg.agents.defaults || {};
-
-    // PRIMARY MODEL: google/gemini-2.5-flash — free via Google AI Studio.
-    // User has a fresh GOOGLE_API_KEY set in Railway env vars.
     cfg.agents.defaults.model = cfg.agents.defaults.model || {};
+
     const desiredPrimary = "google/gemini-2.5-flash";
     if (cfg.agents.defaults.model.primary !== desiredPrimary) {
       cfg.agents.defaults.model.primary = desiredPrimary;
       dirty = true;
     }
 
+    // --- Clean up stale model entries that cause fallback issues ---
     cfg.agents.defaults.models = cfg.agents.defaults.models || {};
+    const staleModels = [
+      "nvidia/nemotron-3-super",
+      "nvidia/nemotron-3-super-120b-a12b:free",
+      "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "nvidia/cosmos-reason2-8b",
+      "google/gemini-3-flash-preview",
+      "deepseek-ai/deepseek-r1",
+      "mistralai/devstral-2:free",
+      "stepfun/step-3.5-flash:free",
+      "meta-llama/llama-3.3-70b-instruct:free",
+      "openrouter/deepseek-ai/deepseek-r1",
+    ];
+    for (const stale of staleModels) {
+      if (cfg.agents.defaults.models[stale]) {
+        delete cfg.agents.defaults.models[stale];
+        dirty = true;
+      }
+    }
 
-    // All free models. OpenClaw infers provider from the string prefix.
+    // --- Required models (all free) ---
     const requiredModels = {
       "google/gemini-2.5-flash": { alias: "gemini-flash" },
       "openrouter/nvidia/nemotron-3-nano-30b-a3b:free": { alias: "coding-primary" },
@@ -206,7 +238,6 @@ async function patchOpenclawConfig() {
     };
 
     for (const [m, spec] of Object.entries(requiredModels)) {
-      // Re-apply if missing OR if alias has changed
       if (!cfg.agents.defaults.models[m] || cfg.agents.defaults.models[m].alias !== spec.alias) {
         cfg.agents.defaults.models[m] = spec;
         dirty = true;

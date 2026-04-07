@@ -1,1 +1,1 @@
-Rebuild triggered: 2026-04-07 V4 — Primary: google/gemini-2.5-flash with new API key, GEMINI_API_KEY passthrough fixed
+Rebuild triggered: 2026-04-07 V5 — Add google:default auth profile, cleanup stale models, force Gemini 2.5 Flash primary
