@@ -1,1 +1,1 @@
-Rebuild triggered: 2026-04-07 V5 — Add google:default auth profile, cleanup stale models, force Gemini 2.5 Flash primary
+Rebuild triggered: 2026-04-07 V7 — Restart Loop Fix, API Key Force-env, Telegram security bypass (auto-allow 5233187511)

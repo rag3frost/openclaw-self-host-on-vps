@@ -178,16 +178,23 @@ async function patchOpenclawConfig() {
     cfg.auth.profiles = cfg.auth.profiles || {};
 
     // Force-reset Google profile every time (clears auth_permanent blacklist)
+    // AND clear any saved apiKey to force reliance on environment variables.
     cfg.auth.profiles["google:default"] = { provider: "google", mode: "api_key" };
+    if (cfg.auth.profiles["google:default"].apiKey) {
+      delete cfg.auth.profiles["google:default"].apiKey;
+    }
     dirty = true;
 
-    const otherProfiles = {
-      "nvidia:default": { provider: "nvidia", mode: "api_key" },
-      "openrouter:default": { provider: "openrouter", mode: "api_key" },
-    };
-    for (const [key, val] of Object.entries(otherProfiles)) {
-      if (!cfg.auth.profiles[key] || cfg.auth.profiles[key].provider !== val.provider) {
-        cfg.auth.profiles[key] = val;
+    const otherProfiles = ["nvidia:default", "openrouter:default"];
+    for (const p of otherProfiles) {
+      if (cfg.auth.profiles[p]) {
+        if (cfg.auth.profiles[p].apiKey) {
+          delete cfg.auth.profiles[p].apiKey;
+          dirty = true;
+        }
+      } else {
+        const provider = p.split(":")[0];
+        cfg.auth.profiles[p] = { provider, mode: "api_key" };
         dirty = true;
       }
     }
@@ -267,17 +274,30 @@ async function startGateway() {
   fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
   await patchOpenclawConfig();
 
-  // for (const lockPath of [
-  //   path.join(STATE_DIR, "gateway.lock"),
-  //   "/tmp/openclaw-gateway.lock",
-  // ]) {
-  //   try {
-  //     fs.rmSync(lockPath, { force: true });
-  //   } catch {}
-  // }
-
+  // Breaking the restart loop: Force-kill any zombie processes
+  // and clear lock files that prevent the gateway from starting.
+  console.log("[gateway] cleaning up existing processes and locks...");
+  await runCmd("pkill", ["-9", "-f", "openclaw gateway run"]).catch(() => {});
+  await runCmd("fuser", ["-k", `${INTERNAL_GATEWAY_PORT}/tcp`]).catch(() => {});
+  
   const stopResult = await runCmd(OPENCLAW_NODE, clawArgs(["gateway", "stop"]));
-  console.log("gateway", `stop existing gateway exit=${stopResult.code}`);
+  console.log("gateway", `stop result exit=${stopResult.code}`);
+
+  for (const lockPath of [
+    path.join(STATE_DIR, "gateway.lock"),
+    "/tmp/openclaw-gateway.lock",
+    "/var/run/openclaw-gateway.pid",
+  ]) {
+    try {
+      if (fs.existsSync(lockPath)) {
+        fs.unlinkSync(lockPath);
+        console.log(`[gateway] removed stale lock: ${lockPath}`);
+      }
+    } catch (err) {}
+  }
+  
+  // Brief pause to allow the OS to free the port
+  await sleep(1000);
 
   const args = [
     "gateway",

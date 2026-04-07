@@ -86,12 +86,18 @@ gosu sandbox bash -c '
   openclaw config delete auth.profiles.google:default 2>/dev/null || true
 
   # Auth profiles: Google, NVIDIA, OpenRouter
+  # Use Config set to ensure provider/mode, and explicit delete of apiKey to force Env Var use
   openclaw config set auth.profiles.google:default.provider google 2>/dev/null || true
   openclaw config set auth.profiles.google:default.mode api_key 2>/dev/null || true
+  openclaw config delete auth.profiles.google:default.apiKey 2>/dev/null || true
+  
   openclaw config set auth.profiles.nvidia:default.provider nvidia 2>/dev/null || true
   openclaw config set auth.profiles.nvidia:default.mode api_key 2>/dev/null || true
+  openclaw config delete auth.profiles.nvidia:default.apiKey 2>/dev/null || true
+
   openclaw config set auth.profiles.openrouter:default.provider openrouter 2>/dev/null || true
   openclaw config set auth.profiles.openrouter:default.mode api_key 2>/dev/null || true
+  openclaw config delete auth.profiles.openrouter:default.apiKey 2>/dev/null || true
 
   # Enable Google plugin
   openclaw config set plugins.entries.google.enabled true 2>/dev/null || true
