@@ -183,26 +183,26 @@ async function patchOpenclawConfig() {
 
     cfg.agents = cfg.agents || {};
     cfg.agents.defaults = cfg.agents.defaults || {};
-    
-    // Explicitly set default primary orchestrator
+
+    // PRIMARY MODEL: Use free OpenRouter Nemotron to avoid Google API key expiry issues.
+    // We always enforce this so a stale openclaw.json can't revert to a paid/expired model.
     cfg.agents.defaults.model = cfg.agents.defaults.model || {};
-    if (cfg.agents.defaults.model.primary !== "google/gemini-2.5-flash") {
-      cfg.agents.defaults.model.primary = "google/gemini-2.5-flash";
+    const desiredPrimary = "openrouter/nvidia/nemotron-3-super-120b-a12b:free";
+    if (cfg.agents.defaults.model.primary !== desiredPrimary) {
+      cfg.agents.defaults.model.primary = desiredPrimary;
       dirty = true;
     }
 
     cfg.agents.defaults.models = cfg.agents.defaults.models || {};
-    
-    // OpenClaw infers the provider from the string prefix, do NOT add a "provider" key here.
+
+    // OpenClaw infers the provider from the string prefix — do NOT add a "provider" key.
+    // Only free models listed here to avoid unexpected billing.
     const requiredModels = {
-      "google/gemini-3-flash-preview": { alias: "gemini-flash" },
-      "google/gemini-2.5-flash": { alias: "gemini-flash" },
-      "nvidia/nemotron-3-super": { alias: "coding-primary" },
-      "openrouter/deepseek-ai/deepseek-r1": { alias: "reasoning-primary" },
+      "openrouter/nvidia/nemotron-3-super-120b-a12b:free": { alias: "coding-primary" },
+      "openrouter/deepseek-ai/deepseek-r1:free": { alias: "reasoning-primary" },
       "openrouter/mistralai/devstral-2:free": { alias: "coding-fallback" },
       "openrouter/stepfun/step-3.5-flash:free": { alias: "claude-substitute" },
       "openrouter/meta-llama/llama-3.3-70b-instruct:free": { alias: "creative" },
-      "nvidia/cosmos-reason2-8b": { alias: "vision-specialist" }
     };
 
     for (const [m, spec] of Object.entries(requiredModels)) {
@@ -215,7 +215,7 @@ async function patchOpenclawConfig() {
 
     if (dirty) {
       fs.writeFileSync(cp, JSON.stringify(cfg, null, 2));
-      console.log("[wrapper] auto-patched openclaw.json with subagents");
+      console.log("[wrapper] auto-patched openclaw.json — primary model: " + desiredPrimary);
     }
   } catch (err) {
     console.error("[wrapper] error patching config:", err);

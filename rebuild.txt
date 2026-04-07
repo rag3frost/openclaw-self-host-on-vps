@@ -1,1 +1,1 @@
-Force rebuild Mon Mar 30 20:40:12 UTC 2026
+Rebuild triggered: 2026-04-07 — Switch primary model to openrouter/nvidia/nemotron-3-super-120b-a12b:free (all free models, no expired Google key)

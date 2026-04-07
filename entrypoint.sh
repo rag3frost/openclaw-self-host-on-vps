@@ -47,6 +47,12 @@ chown -R sandbox:sandbox /data/openshell /app
 cp /app/openclaw-sandbox.yaml /data/openclaw-sandbox.yaml
 chown sandbox:sandbox /data/openclaw-sandbox.yaml
 
+# Pass GOOGLE_API_KEY as GEMINI_API_KEY if not already set (Google plugin looks for GEMINI_API_KEY)
+if [ -n "$GOOGLE_API_KEY" ] && [ -z "$GEMINI_API_KEY" ]; then
+  export GEMINI_API_KEY="$GOOGLE_API_KEY"
+  echo "🔑 Mapped GOOGLE_API_KEY → GEMINI_API_KEY for Google plugin"
+fi
+
 # Claude Code Spoofing: Redirect to OpenRouter using StepFun
 # Uses OPENROUTER_API_KEY passed from Railway as the 'Anthropic' key.
 export ANTHROPIC_BASE_URL="https://openrouter.ai/api"
@@ -65,11 +71,15 @@ gosu sandbox bash -c '
   openclaw config set auth.profiles.openrouter:default.provider openrouter 2>/dev/null || true
   openclaw config set auth.profiles.openrouter:default.mode api_key 2>/dev/null || true
 
-  openclaw config set agents.defaults.models.nvidia/nemotron-3-super.alias coding-primary 2>/dev/null || true
-  openclaw config set agents.defaults.models.openrouter/deepseek-ai/deepseek-r1.alias reasoning-primary 2>/dev/null || true
-  openclaw config set agents.defaults.models.openrouter/mistralai/devstral-2:free.alias coding-fallback 2>/dev/null || true
-  openclaw config set agents.defaults.models.openrouter/stepfun/step-3.5-flash:free.alias claude-substitute 2>/dev/null || true
-  openclaw config set agents.defaults.models.openrouter/meta-llama/llama-3.3-70b-instruct:free.alias creative 2>/dev/null || true
+  # PRIMARY MODEL: free OpenRouter Nemotron (avoids Google API key expiry)
+  openclaw config set agents.defaults.model.primary "openrouter/nvidia/nemotron-3-super-120b-a12b:free" 2>/dev/null || true
+
+  # Free model aliases (all via OpenRouter)
+  openclaw config set agents.defaults.models."openrouter/nvidia/nemotron-3-super-120b-a12b:free".alias coding-primary 2>/dev/null || true
+  openclaw config set agents.defaults.models."openrouter/deepseek-ai/deepseek-r1:free".alias reasoning-primary 2>/dev/null || true
+  openclaw config set agents.defaults.models."openrouter/mistralai/devstral-2:free".alias coding-fallback 2>/dev/null || true
+  openclaw config set agents.defaults.models."openrouter/stepfun/step-3.5-flash:free".alias claude-substitute 2>/dev/null || true
+  openclaw config set agents.defaults.models."openrouter/meta-llama/llama-3.3-70b-instruct:free".alias creative 2>/dev/null || true
 '
 
 # Generate a gateway token if one wasn't fed by environment
