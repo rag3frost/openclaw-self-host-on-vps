@@ -289,7 +289,10 @@ async function startGateway() {
   console.log("[gateway] performing surgical cleanup...");
 
   // Gracefully stop any supervised instance to clear stale lock ownership
-  await runCmd(OPENCLAW_NODE, clawArgs(["gateway", "stop"])).catch(() => {});
+  const stopResult = await runCmd(OPENCLAW_NODE, clawArgs(["gateway", "stop"]));
+  if (stopResult.code !== 0) {
+    console.warn(`[gateway] graceful stop returned exit=${stopResult.code}`);
+  }
 
   // 1. Surgical Kill: Find PID from lock file
   const gpLock = path.join(STATE_DIR, "gateway.lock");
@@ -305,7 +308,7 @@ async function startGateway() {
 
   // 2. Generic Kill: Kill any process with "openclaw gateway run"
   await runCmd("pkill", ["-9", "-f", "openclaw gateway run"]).catch(() => {});
-  await runCmd("pkill", ["-9", "-f", "entry.js gateway run"]).catch(() => {});
+  await runCmd("pkill", ["-9", "-f", `${OPENCLAW_ENTRY} gateway run`]).catch(() => {});
   
   // 3. Clear all known lock paths
   for (const lockPath of lockFiles) {
