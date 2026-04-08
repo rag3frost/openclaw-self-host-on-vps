@@ -258,6 +258,21 @@ async function patchOpenclawConfig() {
       }
     }
 
+    // --- Auto-updater: enable on stable channel ---
+    const desiredUpdate = {
+      channel: "stable",
+      auto: {
+        enabled: true,
+        stableDelayHours: 6,
+        stableJitterHours: 12,
+        betaCheckIntervalHours: 1,
+      },
+    };
+    if (JSON.stringify(cfg.update) !== JSON.stringify(desiredUpdate)) {
+      cfg.update = desiredUpdate;
+      dirty = true;
+    }
+
     if (dirty) {
       fs.writeFileSync(cp, JSON.stringify(cfg, null, 2));
       console.log("[wrapper] auto-patched openclaw.json — primary model: " + desiredPrimary);
