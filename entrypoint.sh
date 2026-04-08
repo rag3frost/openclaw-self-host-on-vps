@@ -91,6 +91,8 @@ if [ -n "$GEMINI_KEY" ]; then
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}" 2>/dev/null || echo "000")
   if [ "$TEST_RESULT" = "200" ]; then
     echo "✅ Gemini API key is VALID (HTTP 200)"
+  elif [ "$TEST_RESULT" = "429" ]; then
+    echo "✅ Gemini API key is VALID (HTTP 429 — rate limited, but key works)"
   else
     echo "❌ Gemini API key test FAILED (HTTP $TEST_RESULT) — check if key is correct in Railway"
   fi

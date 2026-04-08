@@ -208,6 +208,23 @@ async function patchOpenclawConfig() {
       dirty = true;
     }
 
+    // --- Fix ACPX plugin: strip invalid extra properties ---
+    if (cfg.plugins.entries.acpx) {
+      const validKeys = new Set(["enabled"]);
+      const acpx = cfg.plugins.entries.acpx;
+      let acpxDirty = false;
+      for (const key of Object.keys(acpx)) {
+        if (!validKeys.has(key)) {
+          delete acpx[key];
+          acpxDirty = true;
+        }
+      }
+      if (acpxDirty) {
+        console.log("[wrapper] cleaned invalid ACPX plugin config properties");
+        dirty = true;
+      }
+    }
+
     // --- Primary model ---
     cfg.agents = cfg.agents || {};
     cfg.agents.defaults = cfg.agents.defaults || {};
