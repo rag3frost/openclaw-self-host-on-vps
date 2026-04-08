@@ -30,7 +30,7 @@ ENV PATH="/opt/openspace-venv/bin:${PATH}"
 ENV OPENSPACE_WORKSPACE="/opt/OpenSpace"
 
 # Install Node.js global packages (OpenClaw and mcporter)
-RUN npm install -g openclaw@v2026.3.24 mcporter
+RUN npm install -g openclaw@latest mcporter
 
 # Register OpenSpace MCP server with mcporter
 RUN mcporter config add openspace --command "openspace-mcp" \
