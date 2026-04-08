@@ -1,1 +1,1 @@
-Rebuild triggered: 2026-04-08 V9 — Remove port rotation (was breaking health checks), add exponential backoff, fix ACPX permissions, proper PID kill
+Rebuild triggered: 2026-04-08 V10 — Enable auto updater

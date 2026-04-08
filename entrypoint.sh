@@ -65,6 +65,14 @@ mkdir -p /data/.openclaw /data/workspace
 rm -f /data/.openclaw/*.lock 2>/dev/null || true
 chown -R sandbox:sandbox /data
 
+# Upgrade OpenClaw to latest stable (runs as root, has write access)
+echo "📦 Checking for OpenClaw updates..."
+BEFORE_VER=$(openclaw --version 2>/dev/null || echo "unknown")
+npm install -g openclaw@latest --prefer-online --no-audit --no-fund 2>/dev/null && \
+  AFTER_VER=$(openclaw --version 2>/dev/null || echo "unknown") && \
+  echo "📦 OpenClaw: $BEFORE_VER → $AFTER_VER" || \
+  echo "⚠️ OpenClaw upgrade failed (non-fatal), continuing with $BEFORE_VER"
+
 # Fix ACPX plugin permissions (sandbox user needs write access)
 ACPX_DIR="/usr/local/lib/node_modules/openclaw/dist/extensions/acpx"
 if [ -d "$ACPX_DIR" ]; then
