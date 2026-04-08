@@ -1,1 +1,1 @@
-Rebuild triggered: 2026-04-07 V8 — Surgical PID Kill, Port Rotation Fallback, Startup Lock Wipe. Break the loop fix.
+Rebuild triggered: 2026-04-08 V9 — Remove port rotation (was breaking health checks), add exponential backoff, fix ACPX permissions, proper PID kill

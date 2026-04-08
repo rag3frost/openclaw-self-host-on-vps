@@ -65,6 +65,18 @@ mkdir -p /data/.openclaw /data/workspace
 rm -f /data/.openclaw/*.lock 2>/dev/null || true
 chown -R sandbox:sandbox /data
 
+# Fix ACPX plugin permissions (sandbox user needs write access)
+ACPX_DIR="/usr/local/lib/node_modules/openclaw/dist/extensions/acpx"
+if [ -d "$ACPX_DIR" ]; then
+  mkdir -p "$ACPX_DIR/node_modules" 2>/dev/null || true
+  chown -R sandbox:sandbox "$ACPX_DIR" 2>/dev/null || true
+  echo "✅ ACPX plugin directory permissions fixed"
+fi
+
+# Kill any leftover gateway processes from previous container runs
+pkill -9 -f "openclaw gateway run" 2>/dev/null || true
+pkill -9 -f "gateway run.*--port" 2>/dev/null || true
+
 # Run gateway in background
 gosu sandbox bash -c "openshell-gateway --daemon --data-dir /data/openshell > /data/openshell/gateway.log 2>&1 &"
 

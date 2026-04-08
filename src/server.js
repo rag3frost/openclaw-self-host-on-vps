@@ -128,6 +128,7 @@ async function syncAllowedOrigins() {
 let gatewayProc = null;
 let gatewayStarting = null;
 let shuttingDown = false;
+let gatewayRestartCount = 0;
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -274,58 +275,70 @@ async function startGateway() {
   fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
   await patchOpenclawConfig();
 
-  // Breaking the restart loop: Nuclear Cleanup
-  const lockFiles = [
-    path.join(STATE_DIR, "gateway.lock"),
-    "/tmp/openclaw-gateway.lock",
-    "/var/run/openclaw-gateway.pid",
-  ];
+  // --- Cleanup: Kill any existing gateway process ---
+  console.log("[gateway] performing cleanup before start...");
 
-  console.log("[gateway] performing surgical cleanup...");
-
-  // 1. Surgical Kill: Find PID from lock file
+  // 1. Surgical Kill: Read PID from lock file and kill it directly
   const gpLock = path.join(STATE_DIR, "gateway.lock");
   if (fs.existsSync(gpLock)) {
     try {
-      const pid = fs.readFileSync(gpLock, "utf8").trim();
-      if (pid && /^\d+$/.test(pid)) {
-        console.log(`[gateway] found zombie PID ${pid} in lock file. Killing...`);
+      const lockContent = fs.readFileSync(gpLock, "utf8").trim();
+      // Lock file may contain just PID, or JSON with pid field
+      let pid = null;
+      if (/^\d+$/.test(lockContent)) {
+        pid = lockContent;
+      } else {
+        try { pid = String(JSON.parse(lockContent).pid); } catch {}
+      }
+      if (pid) {
+        console.log(`[gateway] killing existing gateway PID ${pid}`);
         await runCmd("kill", ["-9", pid]).catch(() => {});
+        await sleep(500);
       }
     } catch (e) {}
   }
 
-  // 2. Generic Kill: Kill any process with "openclaw gateway run"
-  await runCmd("pkill", ["-9", "-f", "openclaw gateway run"]).catch(() => {});
-  
-  // 3. Clear all known lock paths
-  for (const lockPath of lockFiles) {
+  // 2. Fallback: pkill anything matching gateway run
+  await runCmd("pkill", ["-9", "-f", "gateway run.*--port"]).catch(() => {});
+
+  // 3. Use openclaw's own stop command
+  const stopResult = await runCmd(OPENCLAW_NODE, clawArgs(["gateway", "stop"]));
+  console.log(`[gateway] stop exit=${stopResult.code}`);
+
+  // 4. Remove all lock files
+  for (const lockPath of [
+    gpLock,
+    "/tmp/openclaw-gateway.lock",
+  ]) {
     try {
       if (fs.existsSync(lockPath)) {
         fs.unlinkSync(lockPath);
-        console.log(`[gateway] removed stale lock: ${lockPath}`);
+        console.log(`[gateway] removed lock: ${lockPath}`);
       }
-    } catch (err) {}
-  }
-  
-  // 4. Port Rotation Fallback:
-  // If we keep failing, try a different port (swapping 18789 <-> 18790)
-  const attempts = parseInt(process.env.OPENCLAW_RESTART_COUNT || "0", 10);
-  const currentPort = attempts > 3 ? (INTERNAL_GATEWAY_PORT + 1) : INTERNAL_GATEWAY_PORT;
-  if (currentPort !== INTERNAL_GATEWAY_PORT) {
-    console.log(`[gateway] detected port conflict loop. Swapping to port ${currentPort}`);
+    } catch {}
   }
 
-  // Brief pause to allow the OS to free resources
-  await sleep(1500);
+  // 5. Wait for port to actually be free (up to 5s)
+  for (let i = 0; i < 10; i++) {
+    try {
+      await fetch(`http://127.0.0.1:${INTERNAL_GATEWAY_PORT}/`, { signal: AbortSignal.timeout(300) });
+      // Port still responding, wait more
+      console.log(`[gateway] port ${INTERNAL_GATEWAY_PORT} still in use, waiting...`);
+      await sleep(500);
+    } catch {
+      // Connection refused = port is free
+      break;
+    }
+  }
 
+  // --- Start the gateway on the STANDARD port (no rotation) ---
   const args = [
     "gateway",
     "run",
     "--bind",
     "loopback",
     "--port",
-    String(currentPort),
+    String(INTERNAL_GATEWAY_PORT),
     "--auth",
     "token",
     "--token",
@@ -333,16 +346,12 @@ async function startGateway() {
     "--allow-unconfigured",
   ];
 
-  // Update process.env for the next potential restart loop
-  process.env.OPENCLAW_RESTART_COUNT = String(attempts + 1);
-
   gatewayProc = childProcess.spawn(OPENCLAW_NODE, clawArgs(args), {
     stdio: "inherit",
     env: {
       ...process.env,
       OPENCLAW_STATE_DIR: STATE_DIR,
       OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
-      // Ensure Google plugin can find the key regardless of env var name
       GEMINI_API_KEY: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "",
     },
   });
@@ -362,18 +371,29 @@ async function startGateway() {
     gatewayProc = null;
   });
 
+  // Auto-restart with exponential backoff (2s, 4s, 8s, 16s, max 30s)
+  // and a maximum of 10 consecutive restarts to prevent infinite loops.
   gatewayProc.on("exit", (code, signal) => {
     console.error(`[gateway] exited code=${code} signal=${signal}`);
     gatewayProc = null;
+
+    gatewayRestartCount = (gatewayRestartCount || 0) + 1;
+    if (gatewayRestartCount > 10) {
+      console.error("[gateway] exceeded 10 consecutive restarts. Giving up. Manual restart required.");
+      return;
+    }
+
+    const backoffMs = Math.min(2000 * Math.pow(2, gatewayRestartCount - 1), 30000);
+
     if (!shuttingDown && isConfigured()) {
-      console.log("[gateway] scheduling auto-restart in 2s...");
+      console.log(`[gateway] scheduling auto-restart in ${backoffMs / 1000}s (attempt ${gatewayRestartCount}/10)...`);
       setTimeout(() => {
         if (!shuttingDown && !gatewayProc && isConfigured()) {
           ensureGatewayRunning().catch((err) => {
             console.error(`[gateway] auto-restart failed: ${err.message}`);
           });
         }
-      }, 2000);
+      }, backoffMs);
     }
   });
 }
@@ -389,6 +409,8 @@ async function ensureGatewayRunning() {
       if (!ready) {
         throw new Error("Gateway did not become ready in time");
       }
+      // Reset restart counter on success
+      gatewayRestartCount = 0;
     })().finally(() => {
       gatewayStarting = null;
     });
